@@ -2,7 +2,7 @@
 
 parse.lvm <- function(lvm, columns = c('j_day', 'H2O', 'N2', 'O2', 'Ar', 'DMS', 'O2_Ar', 'N2_Ar', 'Total')){
   temp.lvm <- read.csv(lvm, skip = 22, col.names = columns, sep = "", as.is = T)
-  temp.lvm$j_day <- strptime(temp.lvm$j_day, format = '%j') + as.difftime(temp.lvm$j_day, units = 'days')
+  temp.lvm$j_day <- strptime(temp.lvm$j_day, format = '%j') + as.difftime(temp.lvm$j_day - floor(temp.lvm$j_day), units = 'days', format = '%j')
   return(temp.lvm)
 }
 
@@ -17,8 +17,11 @@ lvm.days <- list()
 ## loop across files
 
 for(f in files){
-  f.name <- strsplit(f, '_.lvm')[[1]]
-  lvm.days[[f.name]] <- parse.lvm(f)
+  f <- paste0('test_data/', f)
+  try({
+    f.name <- strsplit(f, '_.lvm')[[1]]
+    lvm.days[[f.name]] <- parse.lvm(f)
+  }, silent = T)
 }
 
 ## now you have a list holding each days file as a dataframe, which could be convenient, but
@@ -28,13 +31,20 @@ library(zoo)
 
 ## initialize a zoo object with the first lvm file
 
-lvm.zoo <- zoo(lvm.days[[1]], order.by = lvm.days[[1]]$j_day)
+temp.datetime <- lvm.days[[1]]$j_day
+lvm.temp <- lvm.days[[1]]
+lvm.temp$j_day <- NULL
+
+lvm.zoo <- zoo(lvm.temp, order.by = temp.datetime)
 
 ## add remaining lvm files
 
 for(day in names(lvm.days)[2:length(names(lvm.days))]){
-  temp.zoo <- zoo(lvm.days[[day]], order.by = lvm.days[[day]]$j_day)
+  temp.datetime <- lvm.days[[day]]$j_day
+  lvm.temp <- lvm.days[[day]]
+  lvm.temp$j_day <- NULL
+  temp.zoo <- zoo(lvm.temp, order.by = temp.datetime)
   lvm.zoo <- rbind.zoo(lvm.zoo, temp.zoo)
 }
 
-## everything works fine to here, though for some reason the values are getting picked up as character strings despite as.is = T
+plot(lvm.zoo$O2_Ar)
